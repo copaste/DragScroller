@@ -119,7 +119,19 @@
         this.dragging = false;
         this.wrapper = el.parentElement;
         this.wrapperHeight = el.parentElement.clientHeight;
-        this.maxScroll = this.wrapperHeight - el.scrollHeight;
+        this.maxScrollTop = this.wrapperHeight - el.scrollHeight;
+        this.contentHeight = this.getContentHeight();
+        this.contentWidth = this.getContentWidth();
+
+        this.indicatorY = {
+            el: this._createScrollbar(),
+            sizeRatio: 1
+        };
+        this.indicatorY.indicator = this.indicatorY.el.children[0];
+        this.wrapper.appendChild(this.indicatorY.el);
+        this._resizeScrollbars();
+        this._repositionScrollbars();
+
 
         this._onMouseMove = this._onMouseMove.bind(this);
         this._onMouseDown = this._onMouseDown.bind(this);
@@ -153,8 +165,8 @@
             if (this.pointerDown) {
                 this.dragging = true;
 
-                if (newY > 0 || newY < this.maxScroll) {
-                    newY = this.bounce ? this.scrollDistance + deltaY / 3 : newY > 0 ? 0 : this.maxScrollY;
+                if (newY > 0 || newY < this.maxScrollTop) {
+                    newY = this.bounce ? this.scrollDistance + deltaY / 3 : newY > 0 ? 0 : this.maxScrollTop;
                 }
 
                 this._translate(newY);
@@ -186,6 +198,8 @@
             this.el.addEventListener ('mousemove', this._onMouseMove);
             window.addEventListener('mouseup', this._onMouseUp);
 
+            this._toggleScrollbars(true);
+
             event.preventDefault();
         },
         _onMouseUp: function (event) {
@@ -212,14 +226,14 @@
             this._scroll(newY);
 
             if (duration < 300) {
-                momentumY = this._momentum(this.scrollDistance, this.startY, duration, this.maxScroll, this.wrapperHeight);
+                momentumY = this._momentum(this.scrollDistance, this.startY, duration, this.maxScrollTop, this.wrapperHeight);
                 newY = momentumY.destination;
                 momentumTime = momentumY.duration;
                 this.isInTransition = 1;
             }
 
             if (newY !== this.scrollDistance) {
-                if (newY > 0 || newY < this.maxScroll) {
+                if (newY > 0 || newY < this.maxScrollTop) {
                     easing = helpers.ease.quadratic;
                 }
 
@@ -238,11 +252,12 @@
             var delta = ((ev.deltaY || -ev.wheelDelta || ev.detail) >> 10) || 1;
             var newY = this.scrollDistance - (delta * 30);
 
-            if (newY > 0 || newY < this.maxScroll) {
-                newY = newY > 0 ? 0 : this.maxScroll;
+            if (newY > 0 || newY < this.maxScrollTop) {
+                newY = newY > 0 ? 0 : this.maxScrollTop;
             }
 
             this._translate(newY);
+            this._repositionScrollbars();
 
         },
         _normalizeEvent: function (ev) {
@@ -268,15 +283,22 @@
                 this.el.style[helpers.style.transitionTimingFunction] = easing.style;
                 this.el.style[helpers.style.transitionDuration] = time + 'ms';
                 this._translate(y);
+
+
+                this.indicatorY.indicator.style[helpers.style.transitionTimingFunction] = easing.style;
+                this.indicatorY.indicator.style[helpers.style.transitionDuration] = time + 'ms';
+                this._repositionScrollbars();
             } else {
                 this._animate(y, time, easing);
             }
         },
         _refreshOnResize: function (ev) {
             this.wrapperHeight = this.wrapper.clientHeight;
-            this.maxScroll = this.wrapperHeight - el.scrollHeight;
+            this.maxScrollTop = this.wrapperHeight - el.scrollHeight;
             this.endTime = 0;
             this._checkInBoundary();
+            this._resizeScrollbars();
+            this._repositionScrollbars();
         },
         _checkInBoundary: function (time) {
             var y = this.scrollDistance;
@@ -286,8 +308,8 @@
 
             if (this.scrollDistance > 0) {
                 y = 0;
-            } else if (this.scrollDistance < this.maxScroll) {
-                y = this.maxScroll;
+            } else if (this.scrollDistance < this.maxScrollTop) {
+                y = this.maxScrollTop;
             }
 
             if (y == this.scrollDistance) {
@@ -316,6 +338,7 @@
                 if ( now >= destTime ) {
                     self.isAnimating = false;
                     self._translate(destY);
+                    self._toggleScrollbars(false);
 
                     self._checkInBoundary(500);
 
@@ -326,6 +349,7 @@
                 easing = easingFn.fn(now);
                 newY = (destY - startY) * easing + startY;
                 self._translate(newY);
+                self._repositionScrollbars();
 
                 if (self.isAnimating) {
                     requestAnimationFrame(step);
@@ -360,6 +384,109 @@
                 destination: Math.round(destination),
                 duration: duration
             };
+        },
+        _createScrollbar: function(direction) {
+            var bar = document.createElement('div'),
+                indicator = document.createElement('div');
+
+            indicator.className = 'scroll-bar-indicator';
+
+            if (direction == 'h') {
+                bar.className = 'scroll-bar scroll-bar-h';
+            } else {
+                bar.className = 'scroll-bar scroll-bar-v';
+            }
+
+            bar.appendChild(indicator);
+            return bar;
+        },
+        _toggleScrollbars: function (fadeStatus) {
+            if (!fadeStatus && this.indicatorY.indicator.className.match(/sb-fadein/)) {
+                this.indicatorY.indicator.className = this.indicatorY.indicator.className.replace(' sb-fadein', '');
+            }
+            if(fadeStatus && !this.indicatorY.indicator.className.match(/sb-fadein/)) {
+                this.indicatorY.indicator.className += ' sb-fadein';
+            }
+        },
+        _resizeScrollbars: function() {
+            var self = this;
+            var height = Math.max(Math.round(self.wrapper.clientHeight * self.wrapper.clientHeight / (self.contentHeight)), 20);
+
+            if (height > self.contentHeight) {
+                height = 0;
+            }
+            if (height !== self.indicatorY.size) {
+                self.indicatorY && (self.indicatorY.indicator.style.height = height + 'px');
+            }
+            self.indicatorY.size = height;
+            self.indicatorY.minScale = 5 / height; //  1 default
+            self.indicatorY.maxPos = self.wrapper.clientHeight - height;
+            self.indicatorY.sizeRatio = self.maxScrollTop ? self.indicatorY.maxPos / self.maxScrollTop : 1;
+        },
+        _repositionScrollbars: function() {
+            var self = this,
+                scrollTopAbs = Math.abs(self.scrollDistance),
+                maxScrollTopAbs = Math.abs(self.maxScrollTop),
+                heightScale, widthScale,
+                widthDiff, heightDiff,
+                x, y,
+                xstop = 0, ystop = 0;
+
+            if (self.indicatorY) {
+
+                y = Math.abs( Math.round(self.indicatorY.sizeRatio * scrollTopAbs) || 0 );
+
+                // Don't go all the way to the right if we have a vertical scrollbar as well
+                //if (self.indicatorX) ystop = 10;
+
+                heightDiff = scrollTopAbs + (self.maxScrollTop - ystop);
+
+                if (scrollTopAbs < 0) {
+
+                    heightScale = Math.max(self.indicatorY.minScale, (self.indicatorY.size - Math.abs(self.scrollDistance)) / self.indicatorY.size);
+
+                    // Stay at top
+                    y = 0;
+
+                    // Make sure scale is transformed from the center/top origin point
+                    if (self.indicatorY.originProp !== 'center top') {
+                        self.indicatorY.indicator.style[helpers.style.transform] = 'center top';
+                        self.indicatorY.originProp = 'center top';
+                    }
+
+                } else if (heightDiff > 0) {
+
+                    heightScale = Math.max(self.indicatorY.minScale, (self.indicatorY.size - heightDiff) / self.indicatorY.size);
+
+                    // Stay at bottom of scrollable viewport
+                    y = self.indicatorY.maxPos - ystop;
+
+                    // Make sure scale is transformed from the center/bottom origin point
+                    if (self.indicatorY.originProp !== 'center bottom') {
+                        self.indicatorY.indicator.style[helpers.style.transform] = 'center bottom';
+                        self.indicatorY.originProp = 'center bottom';
+                    }
+
+                } else {
+
+                    // Normal motion
+                    y = Math.min(maxScrollTopAbs, Math.max(0, y));
+                    heightScale = 1;
+
+                }
+
+                var translate3dY = 'translate3d(0,' + y + 'px, 0) scaleY(' + heightScale + ')';
+                if (self.indicatorY.transformProp !== translate3dY) {
+                    self.indicatorY.indicator.style[helpers.style.transform] = translate3dY;
+                    self.indicatorY.transformProp = translate3dY;
+                }
+            }
+        },
+        getContentWidth: function() {
+            return Math.max(this.el.scrollWidth, this.el.offsetWidth);
+        },
+        getContentHeight: function() {
+            return Math.max(this.el.scrollHeight, this.el.offsetHeight + (this.el.offsetTop * 2));
         },
         destroy: function () {
             helpers.hasTouch && el.removeEventListener('touchstart', this._onMouseDown, false);
