@@ -94,7 +94,7 @@
                             e = 0.4;
 
                         if ( k === 0 ) { return 0; }
-                        if ( k == 1 ) { return 1; }
+                        if ( k === 1 ) { return 1; }
 
                         return ( e * Math.pow( 2, - 10 * k ) * Math.sin( ( k - f / 4 ) * ( 2 * Math.PI ) / f ) + 1 );
                     }
@@ -104,7 +104,7 @@
     })();
 
     function DragScroller (el, options) {
-        this.el = typeof el == 'string' ? document.querySelector(el) : el;
+        this.el = typeof el === 'string' ? document.querySelector(el) : el;
         this.scrollDistance = 0;
         this.startY = 0;
         this.distY  = 0;
@@ -114,7 +114,7 @@
         this.bounce = true;
         this.pointerDown = false;
         this.isAnimating = false;
-        this.useTransition = false;
+        this.useTransition = true;
         this.isInTransition = true;
         this.dragging = false;
         this.wrapper = el.parentElement;
@@ -137,6 +137,7 @@
         this._onMouseDown = this._onMouseDown.bind(this);
         this._onMouseUp = this._onMouseUp.bind(this);
         this._onMouseWheel = this._onMouseWheel.bind(this);
+        this._scrollEnd = this._scrollEnd.bind(this);
         this._refreshOnResize = this._refreshOnResize.bind(this);
 
         helpers.hasTouch && el.addEventListener('touchstart', this._onMouseDown, false);
@@ -145,6 +146,11 @@
 
         window.addEventListener('orientationchange', this._refreshOnResize);
         window.addEventListener('resize', this._refreshOnResize);
+
+        this.el.addEventListener('transitionend', this._scrollEnd);
+        this.el.addEventListener('webkitTransitionEnd', this._scrollEnd);
+        this.el.addEventListener('oTransitionEnd', this._scrollEnd);
+        this.el.addEventListener('MSTransitionEnd', this._scrollEnd);
     }
 
     DragScroller.prototype = {
@@ -238,6 +244,7 @@
                 }
 
                 this._scroll(newY, momentumTime, easing);
+                return;
             }
 
             var timeout = setTimeout(function () {
@@ -246,6 +253,7 @@
             }, 100);
 
             event.preventDefault();
+            this._scrollEnd(event);
         },
         _onMouseWheel: function (ev) {
             /* Determine the direction of the scroll (< 0 → up, > 0 → down). */
@@ -294,7 +302,7 @@
         },
         _refreshOnResize: function (ev) {
             this.wrapperHeight = this.wrapper.clientHeight;
-            this.maxScrollTop = this.wrapperHeight - el.scrollHeight;
+            this.maxScrollTop = this.wrapperHeight - this.el.scrollHeight;
             this.endTime = 0;
             this._checkInBoundary();
             this._resizeScrollbars();
@@ -312,7 +320,7 @@
                 y = this.maxScrollTop;
             }
 
-            if (y == this.scrollDistance) {
+            if (y === this.scrollDistance) {
                 return false;
             }
 
@@ -338,9 +346,9 @@
                 if ( now >= destTime ) {
                     self.isAnimating = false;
                     self._translate(destY);
-                    self._toggleScrollbars(false);
 
                     self._checkInBoundary(500);
+                    self._scrollEnd();
 
                     return;
                 }
@@ -385,13 +393,16 @@
                 duration: duration
             };
         },
+        _scrollEnd: function (ev) {
+            this._toggleScrollbars(false);
+        },
         _createScrollbar: function(direction) {
             var bar = document.createElement('div'),
                 indicator = document.createElement('div');
 
             indicator.className = 'scroll-bar-indicator';
 
-            if (direction == 'h') {
+            if (direction === 'h') {
                 bar.className = 'scroll-bar scroll-bar-h';
             } else {
                 bar.className = 'scroll-bar scroll-bar-v';
@@ -489,12 +500,17 @@
             return Math.max(this.el.scrollHeight, this.el.offsetHeight + (this.el.offsetTop * 2));
         },
         destroy: function () {
-            helpers.hasTouch && el.removeEventListener('touchstart', this._onMouseDown, false);
-            el.removeEventListener('mousedown', this._onMouseDown);
-            el.removeEventListener(supportsWheel, this._onMouseWheel);
+            helpers.hasTouch && this.el.removeEventListener('touchstart', this._onMouseDown, false);
+            this.el.removeEventListener('mousedown', this._onMouseDown);
+            this.el.removeEventListener(supportsWheel, this._onMouseWheel);
 
             window.removeEventListener('orientationchange', this._refreshOnResize);
             window.removeEventListener('resize', this._refreshOnResize);
+
+            this.el.removeEventListener('transitionend', this._scrollEnd);
+            this.el.removeEventListener('webkitTransitionEnd', this._scrollEnd);
+            this.el.removeEventListener('oTransitionEnd', this._scrollEnd);
+            this.el.removeEventListener('MSTransitionEnd', this._scrollEnd);
         }
     };
 
