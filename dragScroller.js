@@ -114,7 +114,7 @@
         this.bounce = true;
         this.pointerDown = false;
         this.isAnimating = false;
-        this.useTransition = true;
+        this.useTransition = false;
         this.isInTransition = true;
         this.dragging = false;
         this.wrapper = el.parentElement;
@@ -175,7 +175,7 @@
                     newY = this.bounce ? this.scrollDistance + deltaY / 3 : newY > 0 ? 0 : this.maxScrollTop;
                 }
 
-                this._translate(newY);
+                this._scroll(newY);
 
                 if (timestamp - this.startTime > 300) {
                     this.startY = this.scrollDistance;
@@ -291,7 +291,6 @@
                 this.el.style[helpers.style.transitionTimingFunction] = easing.style;
                 this.el.style[helpers.style.transitionDuration] = time + 'ms';
                 this._translate(y);
-
 
                 this.indicatorY.indicator.style[helpers.style.transitionTimingFunction] = easing.style;
                 this.indicatorY.indicator.style[helpers.style.transitionDuration] = time + 'ms';
