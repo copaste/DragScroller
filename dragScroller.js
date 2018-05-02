@@ -312,8 +312,7 @@
 
             time = time || 0;
 
-
-            if (this.scrollDistance > 0) {
+            if (this.scrollDistance >= 0 || this.maxScrollTop > 0) {
                 y = 0;
             } else if (this.scrollDistance < this.maxScrollTop) {
                 y = this.maxScrollTop;
@@ -399,6 +398,30 @@
             var bar = document.createElement('div'),
                 indicator = document.createElement('div');
 
+            helpers.merge(bar.style, {
+                position: 'absolute',
+                width: '7px',
+                bottom: '2px',
+                top: '2px',
+                right: '1px',
+                'z-index': '100',
+                'pointer-events': 'none',
+                'transition-property': 'opacity',
+                overflow: 'hidden'
+            });
+
+            helpers.merge(indicator.style, {
+                position: 'absolute',
+                'z-index': '100',
+                background: 'padding-box padding-box rgba(0, 0, 0, 0.5)',
+                border: '1px solid rgba(255, 255, 255, 0.9)',
+                'box-sizing': 'border-box',
+                width: '100%',
+                'border-radius': '3px',
+                'pointer-events': 'none',
+                height: '268px'
+            });
+
             indicator.className = 'scroll-bar-indicator';
 
             if (direction === 'h') {
@@ -413,9 +436,11 @@
         _toggleScrollbars: function (fadeStatus) {
             if (!fadeStatus && this.indicatorY.indicator.className.match(/sb-fadein/)) {
                 this.indicatorY.indicator.className = this.indicatorY.indicator.className.replace(' sb-fadein', '');
+                this.indicatorY.indicator.style.opacity = 0;
             }
-            if(fadeStatus && !this.indicatorY.indicator.className.match(/sb-fadein/)) {
+            if (fadeStatus && !this.indicatorY.indicator.className.match(/sb-fadein/)) {
                 this.indicatorY.indicator.className += ' sb-fadein';
+                this.indicatorY.indicator.style.opacity = 1;
             }
         },
         _resizeScrollbars: function() {
